@@ -31,14 +31,26 @@ switch lower(Plot)
         
         Min_w = [2.*pi./10000 2.*pi./0.01];
         
-        [LogLikeF,Sigma_F,Sigma_phi]=TimeDelay.logl_F(Pars, FitPar, [], Min_w, ResLC.w, ResLC.F_w, ResLC.sigma_F_hat);
+        %[LogLikeF,Sigma_F,Sigma_phi]=TimeDelay.logl_F(Pars, FitPar, [], Min_w, ResLC.w, ResLC.F_w, ResLC.sigma_F_hat);
+        [LogLikeF,Sigma_F,Sigma_phi]=TimeDelay.logl_F(Pars,'FitPar',FitPar,...
+                    'Min_w',Min_w,...
+                    'w',ResLC.w,...
+                    'F_w',ResLC.F_w,...
+                    'sigma_F',ResLC.sigma_F_hat);
+        
         
         FitPar = [NaN, NaN, NaN];
         DefPar = [InPar.A(1), InPar.A(2), InPar.Gamma];
         Res = TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'VecInvTau',1./InPar.Tau,'FitPar',FitPar,'DefPar',DefPar,...
                 'Min_w',Min_w);
 
-        [BLogLikeF,BSigma_F,BSigma_phi]=TimeDelay.logl_F([InPar.Tau, Res.BestPar_H1],[InPar.Tau, Res.BestPar_H1] , [], Min_w, ResLC.w, ResLC.F_w, ResLC.sigma_F_hat);
+        [BLogLikeF,BSigma_F,BSigma_phi]=TimeDelay.logl_F([InPar.Tau, Res.BestPar_H1],'FitPar',[InPar.Tau, Res.BestPar_H1],...
+                    'Min_w',Min_w,...
+                    'w',ResLC.w,...
+                    'F_w',ResLC.F_w,...
+                    'sigma_F',ResLC.sigma_F_hat);
+        
+        
         
         [~,SI] = sort(ResLC.w);
         semilogy(ResLC.w(SI),abs(ResLC.F_w(SI)).^2)
@@ -70,7 +82,7 @@ switch lower(Plot)
         figure(2);
         plot(1./Res.Tau, Res.LL_H1-Res.LL_H0,'LineWidth',2);
         hold on;
-        axis([0.01 0.1 -25 2]);
+        axis([0.01 0.1 -30 2]);
         
         GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
         Npar = 2;  % Tau, Alpha2
@@ -94,36 +106,101 @@ switch lower(Plot)
         %% LogL as a function of a1/a2
         % using simulation 11
         InPar=select_parameters(11);
+        [ResLC,ResG]=generateLC(InPar);
+        
         % simulate LC
         
         
         InPar.AliasFactor = 10;
         
-        [ResLC,ResG]=generateLC(InPar);
+        
         
         FitPar = [NaN   NaN       InPar.Gamma];
         DefPar = [1     0.2      InPar.Gamma];
         VecInvTau = 1./InPar.Tau;
         Min_w = [2.*pi./200 Inf];
 
-        VecA1   = logspace(-1,1,120);
-        VecA2A1 = logspace(-2,1,180);
+        VecA1   = logspace(-1,1,180);
+        VecA2A1 = logspace(-2,1,120);
         Na1   = numel(VecA1);
         Na2   = numel(VecA2A1);
 
         LA = zeros(Na1,Na2);
         clear LA
-        [LogLikeF_H0,Sigma_F,Sigma_phi]=TimeDelay.logl_F([InPar.A(1), 0],[InPar.Tau NaN NaN InPar.Gamma],[],[],ResLC.w, ResLC.F_w, ResLC.sigma_F_hat);
+        Pars = [InPar.A(1), 0];  % A1 A2
+        FitParH0 = [0, FitPar];
+        
+        IsFreq = true; %false; %true;
+        if IsFreq
+            % frequency domain
+            %[ResLC,ResG]=generateLC(InPar);
+            
+            [LogLikeF_H0,Sigma_F,Sigma_phi]=TimeDelay.logl_F(Pars,'FitPar',FitParH0,...
+                                                                  'w',ResLC.w,...
+                                                                  'F_w',ResLC.F_w,...
+                                                                  'sigma_F',ResLC.sigma_F_hat);
 
-        for Ia1=1:1:Na1
-            Ia1
-            for Ia2=1:1:Na2
-                A2 = VecA2A1(Ia2).*VecA1(Ia1);
-                [LogLikeF_H1,Sigma_F,Sigma_phi]=TimeDelay.logl_F([VecA1(Ia1), A2],[InPar.Tau NaN NaN InPar.Gamma],[],Min_w,ResLC.w, ResLC.F_w, ResLC.sigma_F_hat);
 
+            for Ia1=1:1:Na1
+                Ia1
+                for Ia2=1:1:Na2
+                    A2 = VecA2A1(Ia2).*VecA1(Ia1);
+                    
+                    Pars = [VecA1(Ia1), A2];
+                    FitParH1 = [InPar.Tau, FitPar];
+                    
+                    [LogLikeF_H1,Sigma_F,Sigma_phi]=TimeDelay.logl_F(Pars,'FitPar',FitParH1,...
+                                                                  'w',ResLC.w,...
+                                                                  'F_w',ResLC.F_w,...
+                                                                  'sigma_F',ResLC.sigma_F_hat);
 
-                LA(Ia1,Ia2) = LogLikeF_H1 - LogLikeF_H0;
+                    LA(Ia1,Ia2) = LogLikeF_H1 - LogLikeF_H0;
+                end
             end
+        else
+            % time domain
+            InPar.EndMatching = false;
+            [ResLC,ResG]=generateLC(InPar);
+            
+            [LogLikeF_H0]=TimeDelay.logl_F(Pars,'FitPar',FitParH0,...
+                                                                  't',ResLC.T,...
+                                                                  'F_t',ResLC.F_t,...
+                                                                  'sigma_F',ResLC.sigma_F_hat);
+
+            Tau   = InPar.Tau;
+            gamma = InPar.Gamma;
+            N     = numel(ResLC.T);
+            DT = (0:1:N-1);
+            
+            FunG1  = @(Omega) (cos(Omega.*DT)  - 1).*Omega.^(-gamma);
+            FunG1t = @(Omega) (cos(Omega.*Tau) - 1).*Omega.^(-gamma);
+            FunG2  = @(Omega) (cos(Omega.*DT)  - 1).*cos(Omega.*Tau).*Omega.^(-gamma);
+
+            G1  = 2.*integral(FunG1,0,Inf,'ArrayValued',true);
+            G1t = 2.*integral(FunG1t,0,Inf,'ArrayValued',true);
+            G2  = 2.*integral(FunG2,0,Inf,'ArrayValued',true);
+
+            for Ia1=1:1:Na1
+                Ia1
+                for Ia2=1:1:Na2
+                    A2 = VecA2A1(Ia2).*VecA1(Ia1);
+                    
+                    Pars = [VecA1(Ia1), A2];
+                    FitParH1 = [InPar.Tau, FitPar];
+                    
+                    [LogLikeF_H1]=TimeDelay.logl_F(Pars,'FitPar',FitParH1,...
+                                                                  't',ResLC.T,...
+                                                                  'F_t',ResLC.F_t,...
+                                                                  'sigma_F',ResLC.sigma_F_hat,...
+                                                                  'G1',G1,...
+                                                                  'G1t',G1t',...
+                                                                  'G2',G2);
+
+                    LA(Ia1,Ia2) = LogLikeF_H1 - LogLikeF_H0;
+                end
+            end
+            
+            
         end
         %%
         GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
@@ -139,7 +216,7 @@ switch lower(Plot)
         H=xlabel('$\alpha_1$');
         H.FontSize = 18;
         H.Interpreter = 'latex';
-        H=ylabel('$\alpha_2$/$\alpha_2$');
+        H=ylabel('$\alpha_2$/$\alpha_1$');
         H.FontSize = 18;
         H.Interpreter = 'latex';
 
@@ -156,6 +233,335 @@ switch lower(Plot)
        % else
        %     error('Unknown alias factor');
        % end
+       
+    
+       
+    case 'compare_ft_methods'
+        InPar=select_parameters(11);
+        
+        InPar.AliasFactor = 10;
+        InPar.EndMatching = false;
+        
+
+        VecInvTau = (1./50:1./1000:1./10);
+        
+        DefPar = [1     0.5              2];
+        FitPar = [NaN   NaN              2];
+        
+        [ResLC,ResG]=generateLC(InPar);
+            
+        Isim = 1;
+        % G0=0
+        tic;
+        Res1(Isim)=TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',true,'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar);
+        toc
+        
+        % with w0=1/1000
+        tic;
+        Res2(Isim)=TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',true,'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar,'w0',1./1000);
+        toc
+        % with w0=1/10000
+        tic;
+        Res3(Isim)=TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',true,'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar,'w0',1./10000);
+        toc
+    
+        plot(1./Res1.Tau,Res1.LL_H1-Res1.LL_H0,'LineWidth',2)
+        hold on;
+        plot(1./Res2.Tau,Res2.LL_H1-Res2.LL_H0,'LineWidth',2)
+        plot(1./Res3.Tau,Res3.LL_H1-Res3.LL_H0,'LineWidth',2)
+        
+        H=legend('$G_{0}=0$','$w_{0}=10^{-3}$','$w_{0}=10^{-4}$','Location','SouthEast','AutoUpdate','off');
+        H.Interpreter = 'latex'
+        axis([0.02 0.1 -18 8])
+        
+        GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
+        Npar = 2;  % Tau, Alpha2
+        Level = 0.5.*chi2inv(GaussProb,Npar);
+
+        plot([0 1],-Level(1).*ones(1,2),'k--');
+        plot([0 1],-Level(2).*ones(1,2),'k--');
+        plot([0 1],-Level(3).*ones(1,2),'k--');
+           
+        H = xlabel('1/$\tau$ [day]');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        H = ylabel('$\Delta{\ln\mathcal{L}}$(F)');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        
+        print Flux_Sim11_G0_treatment.eps -depsc2
+        
+    case 'test_ft'
+        %% test time domain solution
+        InPar=select_parameters(11);
+        
+        InPar.AliasFactor = 10;
+        InPar.EndMatching = false;
+        
+
+        VecInvTau = (1./50:1./100:1./10);
+        
+        DefPar = [1     0.5              2];
+        FitPar = [NaN   NaN              2];
+        
+        for Isim=1:1:Nsim
+            [ResLC,ResG]=generateLC(InPar);
+            
+            tic;
+            Res(Isim)=TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',true,'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar);
+            toc
+        end
+        
+        InPar.EndMatching = true;
+        for Isim=1:1:Nsim
+            [ResLC,ResG]=generateLC(InPar);
+            
+            tic;
+            ResFS(Isim)=TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',false,'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar);
+            toc
+        end
+        
+        'a'
+        save Flux_Sim11_TD.mat Res ResFS InPar VecInvTau
+        
+        AllDL = zeros(Nsim,numel(Res.Tau));
+        for Isim=1:1:Nsim
+            AllDL(Isim,:) = [Res(Isim).LL_H1.' - Res(Isim).LL_H0];
+            AllDLfs(Isim,:) = [ResFS(Isim).LL_H1.' - ResFS(Isim).LL_H0];
+        end
+        
+        X = [1./Res(1).Tau];
+        X = [X;flipud(X)];
+        Y = [quantile(AllDL,0.15866).';flipud(quantile(AllDL,0.84134).')];
+        H=patch(X,Y,[0.7 0.7 0.7],'EdgeColor',[0.7 0.7 0.7])
+        % plot.patch_band(1./Res(1).Tau,mean(AllDL).',std(AllDL).')
+        hold on;
+        plot(1./Res(1).Tau,mean(AllDL),'k-','LineWidth',2)
+        %plot.patch_band(1./Res(1).Tau,mean(AllDLfs).',std(AllDLfs).')
+        plot(1./Res(1).Tau,mean(AllDLfs),'LineWidth',2)
+        plot(1./Res(1).Tau, (mean(AllDLfs) - median(mean(AllDLfs))) ./median(std(AllDLfs)./std(AllDL))  ,'LineWidth',2)
+        
+        
+        legend('Time Domain StD','Time Domain Mean','Fourier Space Mean','Fourier Space calibrated','Location','SouthEast','AutoUpdate','off')
+        
+        GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
+        Npar = 2;  % Tau, Alpha2
+        Level = 0.5.*chi2inv(GaussProb,Npar);
+
+        plot([0 1],-Level(1).*ones(1,2),'k--');
+        plot([0 1],-Level(2).*ones(1,2),'k--');
+        plot([0 1],-Level(3).*ones(1,2),'k--');
+                
+        axis([0.02 0.1 -28 5])
+        box on;
+        
+        
+        H = xlabel('1/$\tau$ [day]');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        H = ylabel('$\Delta{\ln\mathcal{L}}$(F)');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        
+        print Flux_Sim11_TD.eps -depsc2
+        
+    case 'test_ft_a2'
+        % time domain with A2/A1 sensitivity
+        
+        %% test time domain solution
+        InPar=select_parameters(11);
+        InPar.AliasFactor = 10;
+        InPar.EndMatching = false;
+        InPar.A(2) = 0.3;
+
+        VecInvTau = (1./50:1./1000:1./10);
+        
+        DefPar = [1     InPar.A(2)       2];
+        FitPar = [NaN   NaN              2];
+        
+        for Isim=1:1:Nsim
+            [ResLC,ResG]=generateLC(InPar);
+            [Isim,1]
+            tic;
+            Res1(Isim)=TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',true,'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar);
+            toc
+        end
+        
+        %
+        InPar.A(2) = 0.1;
+        
+        DefPar = [1     InPar.A(2)       2];
+        FitPar = [NaN   NaN              2];
+        
+        for Isim=1:1:Nsim
+            [ResLC,ResG]=generateLC(InPar);
+            [Isim,2]
+            tic;
+            Res2(Isim)=TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',true,'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar);
+            toc
+        end
+        
+        %
+        InPar.A(2) = 0.03;
+        
+        DefPar = [1     InPar.A(2)       2];
+        FitPar = [NaN   NaN              2];
+        
+        for Isim=1:1:Nsim
+            [ResLC,ResG]=generateLC(InPar);
+            [Isim,3]
+            tic;
+            Res3(Isim)=TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',true,'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar);
+            toc
+        end
+        
+        %
+        save Flux_Sim11_TD_A2.mat
+        'a'
+        
+        AllDL1 = zeros(Nsim,numel(Res1(1).Tau));
+        AllDL2 = zeros(Nsim,numel(Res2(1).Tau));
+        AllDL3 = zeros(Nsim,numel(Res3(1).Tau));
+        
+        for Isim=1:1:Nsim
+            AllDL1(Isim,:) = Res1(Isim).LL_H1.' - Res1(Isim).LL_H0;
+            AllDL2(Isim,:) = Res2(Isim).LL_H1.' - Res2(Isim).LL_H0;
+            AllDL3(Isim,:) = Res3(Isim).LL_H1.' - Res3(Isim).LL_H0;
+        end
+        
+        X = [1./Res1(1).Tau];
+        X = [X;flipud(X)];
+        Y = [quantile(AllDL1,0.15866).';flipud(quantile(AllDL1,0.84134).')];
+        H=patch(X,Y,[0.7 0.7 0.7],'EdgeColor',[0.7 0.7 0.7])
+        hold on;
+        plot(1./Res1(1).Tau,mean(AllDL1),'k-','LineWidth',2);
+        plot(1./Res1(1).Tau,mean(AllDL2),'-','LineWidth',2);
+        %plot(1./Res1(1).Tau,mean(AllDL3),'-','LineWidth',2);
+        H=legend('Std $\alpha_{2}/\alpha_{1}=0.3$','Mean $\alpha_{2}/\alpha_{1}=0.3$','Mean $\alpha_{2}/\alpha_{1}=0.1$','AutoUpdate','off','Location','SouthEast')
+        H.Interpreter = 'latex';
+        
+        %plot(1./Res1(1).Tau,quantile(AllDL1,0.15866),'LineWidth',1);
+        %plot(1./Res1(1).Tau,quantile(AllDL1,0.84134),'LineWidth',1);
+        box on
+        axis([0.02 0.1 -14 1]);
+        GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
+        Npar = 2;  % Tau, Alpha2
+        Level = 0.5.*chi2inv(GaussProb,Npar);
+
+        plot([0 0.1],-Level(1).*ones(1,2),'k--');
+        plot([0 0.1],-Level(2).*ones(1,2),'k--');
+        plot([0 0.1],-Level(3).*ones(1,2),'k--');
+        
+        H = xlabel('1/$\tau$ [day]');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        H = ylabel('$\Delta{\ln\mathcal{L}}$(F)');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        
+        print Flux_Sim11_TD_A2.eps -depsc2
+        
+    case 'time_h0'
+        %% simulations for H0
+        % using simulation 11
+        InPar=select_parameters(11);
+        InPar.EndMatching = false;
+        
+        tic;
+        %Nsim = 1000;
+        clear Res;
+
+        InPar.A(2) = 0;
+        InPar.Tau  = 0;
+
+        Ng = 1;
+        for Ig=1:1:Ng
+
+
+            FitPar = [NaN         NaN          InPar.Gamma];
+            DefPar = [InPar.A(1)  InPar.A(2)   InPar.Gamma];
+            VecInvTau = (1./50:1./1000:1./10);
+            
+            for Isim=1:1:Nsim
+                [Ig, Isim, Nsim]
+                % simulate LC
+                try
+                    [ResLC,ResG]=generateLC(InPar);
+                catch
+                    [ResLC,ResG]=generateLC(InPar);
+                end
+                
+                Res(Ig,Isim) = TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',true,...
+                                                            'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar);
+                
+
+            end
+
+        end
+        toc
+        
+        save -v7.3 Res_Sim11_TD_H0.mat Res InPar
+        
+        %%
+        
+        Nsim = 100;
+        for Isim=1:1:Nsim
+            AllDL(Isim,:) = [Res(Isim).LL_H1 - Res(Isim).LL_H0].';
+            MinDL(Isim)   = min([Res(Isim).LL_H1 - Res(Isim).LL_H0].');
+        end
+        MeanDL = mean(AllDL);
+        StdDL  = std(AllDL);
+        %StdDL  = imUtil.background.rstd(AllDL);
+        
+        
+        plot.patch_band(1./Res(1).Tau,MeanDL(:),StdDL(:));
+        hold on;
+        plot(1./Res(1).Tau,mean(AllDL),'k-','LineWidth',2)
+        axis([0.02 0.1 -10 150]);
+        box on;
+        
+        GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
+        Npar = 2;  % Tau, Alpha2
+        Level = 0.5.*chi2inv(GaussProb,Npar);
+
+        plot([0 1],-Level(1).*ones(1,2),'k--');
+        plot([0 1],-Level(2).*ones(1,2),'k--');
+        plot([0 1],-Level(3).*ones(1,2),'k--');
+        
+        H = xlabel('1/$\tau$ [day]');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        H = ylabel('$\Delta{\ln\mathcal{L}}$(F)');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        
+        print Flux_Sim11_TD_H0_DL_Tau.eps -depsc2
+        
+        %%
+        %histogram(AllDL(:),[-10:1:50'],'Normalization','cdf')
+        histogram(MinDL(:),[-10:1:0'],'Normalization','cdf')
+        
+        hold on;
+        axis([-10 0 0 1])
+       
+        GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
+        Npar = 2;  % Tau, Alpha2
+        Level = 0.5.*chi2inv(GaussProb,Npar);
+
+        plot(-Level(1).*ones(1,2),[0 1],'k--');
+        plot(-Level(2).*ones(1,2),[0 1],'k--');
+        plot(-Level(3).*ones(1,2),[0 1],'k--');
+
+        H = ylabel('Cumulative fraction');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        H = xlabel('min($\Delta{\ln\mathcal{L}}$(F))');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        
+        print Flux_Sim11_TD_H0_histMin.eps -depsc2
+        
+        
         
         
     case 'fitgamma'
@@ -262,7 +668,7 @@ switch lower(Plot)
         end
         Mean_NEM_Alias1 = nanmedian(AllDL);
         Std_NEM_Alias1  = nanstd(AllDL);
-        Std_NEM_Alias1  = imUtil.background.rstd(AllDL,1);
+        %Std_NEM_Alias1  = imUtil.background.rstd(AllDL,1);
 
         %
         load Res_Sim11_NoEndMatching_fitgamma.mat
@@ -280,7 +686,7 @@ switch lower(Plot)
         end
         Mean_NEM_Alias10 = nanmedian(AllDL);
         Std_NEM_Alias10  = nanstd(AllDL);
-        Std_NEM_Alias10  = imUtil.background.rstd(AllDL,1);
+        %Std_NEM_Alias10  = imUtil.background.rstd(AllDL,1);
 
         %
         load Res_Sim11_fitgamma.mat
@@ -298,12 +704,12 @@ switch lower(Plot)
         end
         Mean_EM_Alias10 = nanmedian(AllDL);
         Std_EM_Alias10  = nanstd(AllDL);
-        Std_EM_Alias10  = imUtil.background.rstd(AllDL,1);
+        %Std_EM_Alias10  = imUtil.background.rstd(AllDL,1);
 
         %
         
                
-        plot.patch_band(1./Res(1,1).Tau,Mean_EM_Alias10(:),Std_NEM_Alias1(:))
+        plot.patch_band(1./Res(1,1).Tau,Mean_EM_Alias10(:),Std_EM_Alias10(:))
         hold on;
         plot(1./Res(1,1).Tau,Mean_EM_Alias10(:),'LineWidth',2)
         plot(1./Res(1,1).Tau,Mean_NEM_Alias10(:),'LineWidth',2)
@@ -851,6 +1257,7 @@ switch lower(Plot)
         
         for Isim=1:1:Nsim
             AllDL(Isim,:) = [Res(Isim).LL_H1 - Res(Isim).LL_H0].';
+            MinDL(Isim)   = min([Res(Isim).LL_H1 - Res(Isim).LL_H0].');
         end
         MeanDL = mean(AllDL);
         StdDL  = std(AllDL);
@@ -881,9 +1288,11 @@ switch lower(Plot)
         print Flux_Sim11_EM_Alias10_H0_DL_Tau.eps -depsc2
         
         %%
-        histogram(AllDL(:),[-10:1:50'],'Normalization','cdf')
+        %histogram(AllDL(:),[-10:1:50'],'Normalization','cdf')
+        histogram(MinDL(:),[-10:1:0'],'Normalization','cdf')
+        
         hold on;
-        axis([-7 5 0 1])
+        axis([-9 0 0 1])
        
         GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
         Npar = 2;  % Tau, Alpha2
@@ -896,11 +1305,85 @@ switch lower(Plot)
         H = ylabel('Cumulative fraction');
         H.FontSize = 18;
         H.Interpreter = 'latex';
-        H = xlabel('$\Delta{\ln\mathcal{L}}$(F)');
+        H = xlabel('min($\Delta{\ln\mathcal{L}}$(F))');
         H.FontSize = 18;
         H.Interpreter = 'latex';
         
-        print Flux_Sim11_EM_Alias10_H0_hist.eps -depsc2
+        print Flux_Sim11_EM_Alias10_H0_histMin.eps -depsc2
+       
+        
+    case 'td_uneq'
+        % time domain fit - unequally spaced simulations
+        
+        InPar=select_parameters(11);
+        InPar.EndMatching = false;
+        
+        InPar.Tau = 18;
+
+        Min_w = [2.*pi./5000 2.*pi./0.01];
+        %Min_w = 2.*pi./[200 10];
+        
+        FitPar = [NaN         NaN          InPar.Gamma];
+        DefPar = [InPar.A(1)  InPar.A(2)   InPar.Gamma];
+        VecInvTau = (1./50:1./1000:1./10).';
+
+        Nsim=30
+        for Isim=16:1:Nsim
+            %[ResLC]=generateLC(InPar);
+            [ResLC,Section,PS]=generateLCuneq(InPar);
+            ResLC
+            % interpolate
+            %TT = (2:1:900).';
+            %ResLC.F_t = interp1(ResLC.T,ResLC.F_t,TT,'pchip');
+            %ResLC.T   = TT;
+            tic;
+            Res(Isim) = TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',true,...
+                                                            'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar);
+                
+            toc
+        end
+        
+        
+        
+        'a'
+        save -v7.3 Flux_Sim11_Tau18_unevenly_TD.mat
+        
+        AllDL = zeros(Nsim,numel(Res(1).Tau));
+        for Isim=1:1:Nsim
+            AllDL(Isim,:) = Res(Isim).LL_H1.' - Res(Isim).LL_H0;
+        end
+        
+        QL = quantile(AllDL,0.15);
+        QU = quantile(AllDL,0.85);
+        H=patch(1./[Res(1).Tau(:);flipud(Res(1).Tau(:))],[QL(:);flipud(QU(:))],[0.8 0.8 0.8]);
+        H.EdgeColor= [0.8 0.8 0.8];
+        hold on;
+        plot(1./Res(1).Tau,median(AllDL),'k-','LineWidth',2);
+        hold on;
+        %plot(1./Res(1).Tau,quantile(AllDL,0.15),'-','Color',[0.8 0.8 0.8],'LineWidth',2)
+        %plot(1./Res(1).Tau,quantile(AllDL,0.85),'-','Color',[0.8 0.8 0.8],'LineWidth',2)
+                
+        GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
+        Npar = 2;  % Tau, Alpha2
+        Level = 0.5.*chi2inv(GaussProb,Npar);
+
+        plot([0 0.1],-Level(1).*ones(1,2),'k--');
+        plot([0 0.1],-Level(2).*ones(1,2),'k--');
+        plot([0 0.1],-Level(3).*ones(1,2),'k--');
+        
+        H = xlabel('1/$\tau$ [day]');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        H = ylabel('$\Delta{\ln\mathcal{L}}$(F)');
+        H.FontSize = 18;
+        H.Interpreter = 'latex';
+        plot(1./InPar.Tau.*ones(1,2),[-15 5],'r-','LineWidth',1)
+        axis([0.02 0.1 -14 3])
+        box on;
+        
+        print Flux_Sim11_Tau18_unevenly_TD.eps -depsc2
+        
+        
         
     case 'uneq'
         %% unequally space simulatins
@@ -1077,11 +1560,22 @@ end
 function [ResLC,Section,PS]=generateLCuneq(InPar)
 
     %T=timeseries.random_time_sequence; 
-    T=timeseries.random_time_sequence(6.*365,1,270,0.05,0.8);
-    ResLC=TimeDelay.rand_lensed_uneq(T,InPar);
+    InPar.TotTime = 2000;
+    InPar.DeltaT  = 0.1;
+    InPar.AliasFactor = 5;
+    [ResLC,ResG]=generateLC(InPar)
     
-    N = numel(T);
-    LC = [ResLC.T, ResLC.F_t, ResLC.Base.sigma_F_hat.*ones(N,1)];
-    [PS,Section]=TimeDelay.power_spectrum_sections(LC);
+    T=timeseries.random_time_sequence(3.*365,1,270,0.05,0.8);
+    
+    ResLC.F_t = interp1(ResLC.T,ResLC.F_t,T,'pchip');
+    ResLC.T   = T;
+    Section = [];
+    PS      = [];
+    
+%     ResLC=TimeDelay.rand_lensed_uneq(T,InPar);
+%     
+%     N = numel(T);
+%     LC = [ResLC.T, ResLC.F_t, ResLC.Base.sigma_F_hat.*ones(N,1)];
+%     [PS,Section]=TimeDelay.power_spectrum_sections(LC);
     
 end

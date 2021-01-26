@@ -1,6 +1,6 @@
 function Res=fit_fluxBPL(t,F_t,sigma_F,varargin)
 % Fit the power spectrum with broken power-law model
-%
+% FOR TESTING PURPOSES - DO NOT USE
 % Example: Res=TimeDelay.fit_fluxBPL(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat)
 
 

@@ -7,7 +7,6 @@ function [PS,Section]=power_spectrum_sections(LC,varargin)
 %              timeseries. Calculate the power spectrum of each section and
 %              add all the power spectra in phase.
 % Input  : - Light curve [Time, Flux, Err]
-%          * 
 
 
 
