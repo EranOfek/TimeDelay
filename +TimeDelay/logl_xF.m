@@ -12,7 +12,7 @@ function [LogL_xF,LogL_GF,LogL_F]=logl_xF(Pars,varargin)
 %                   If value is NaN, then will use its value from the first
 %                   input argument (by order of apperance), otherwise will
 %                   use the indicated value.
-%                   Default is [0 1 0  2].
+%                   Default is [0 0 NaN   NaN      0   1   -1        3].
 %            'Limits' - A two column matrix of lower/upper limits on the
 %                   paramaeters.
 %                   Default is [-300 300; 0 3; 1e-5 5;0 5;  -1 1; -2.1 2.1; -2.1 2.1;     1.5 3.5].

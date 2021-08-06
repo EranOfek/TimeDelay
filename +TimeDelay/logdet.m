@@ -3,7 +3,7 @@ function LogDet=logdet(Matrix,Algo)
 % Package: +TimeDelay
 % Description: Based on 
 % Input  : - A matrix.
-%          - Algorithm. ['lu' | 'chol'.
+%          - Algorithm. ['lu'] | 'chol'.
 %            'chol' is faster but will work only for positive definite
 %            matrix (will fail otherwise).
 % Output : - The log of the determinent of the matrix.

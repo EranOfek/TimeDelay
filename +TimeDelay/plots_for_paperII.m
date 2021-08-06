@@ -835,6 +835,9 @@ switch lower(Plot)
         InPar.EndMatching = false;
         InPar.AliasFactor = 10;
 
+        %InPar.Gamma=2.0;
+        InPar.Gamma=2.5;
+        
         VecInvTau = [(1./100:1./300:1./10)];
         VecInvTau = [-fliplr(VecInvTau), VecInvTau];
         Nsim = 1
@@ -885,8 +888,11 @@ switch lower(Plot)
         end
 
         %
-        save -v7.3 Ast_Sim2_fit_wronggamma_T300.mat
+        save -v7.3 Ast_Sim2_fit_wronggamma_T300_g25.mat
         
+        load Ast_Sim2_fit_wronggamma_T300_g25
+        Res25 = Res;
+        load Ast_Sim2_fit_wronggamma_T300
         
         for Igamma=1:1:Ngamma
             VecInvTau1 = [VecInvTau(1:28), NaN, VecInvTau(29:end)]
@@ -894,13 +900,19 @@ switch lower(Plot)
             DLL = DLL(:).';
             DLL = [DLL(1:28), NaN, DLL(29:end)];
             
+            DLL25 = [Res25(Isim,Igamma).LL_H1 - Res25(Isim,Igamma).LL_H0];
+            DLL25 = DLL25(:).';
+            DLL25 = [DLL25(1:28), NaN, DLL25(29:end)];
+            
             plot(VecInvTau1,DLL);
             hold on;
+            plot(VecInvTau1,DLL25+100);
         end
         H=legend('$\gamma=1.5$','$\gamma=2.0$','$\gamma=2.5$','$\gamma=3.0$','$\gamma=3.5$','Location','NorthEast');
         H.Interpreter = 'latex';
         
         axis([-0.1 0.1 -200 200])
+        plot([-0.1 0.1],[-190+chi2inv(0.68,[9 9])],'k--')
    
         H = xlabel('$1/\tau$ [1/day]');
         H.Interpreter = 'latex';
@@ -934,7 +946,7 @@ switch lower(Plot)
         tic;
 
 
-        A2 = [0.01 0.03 0.1 0.3];
+        A2 = [0.05]; %0.01 0.03 0.1 0.3];
         Na2   = numel(A2);
         
         VecRot = 0; 
@@ -980,7 +992,8 @@ switch lower(Plot)
         save -v7.3 Ast_Sim2_fit_sensA2_T300.mat
         'a'
         
-        for Ia2=1:1:size(Res,2)
+        for Ia1=1:1:1,
+            %size(Res,2)
             M(Ia2).DLL = zeros(Nsim,numel(VecInvTau));
             for Isim=1:1:size(Res,1)
                 M(Ia2).DLL(Isim,:) = [Res(Isim,Ia2).LL_H1 - Res(Isim,Ia2).LL_H0].';
@@ -993,22 +1006,292 @@ switch lower(Plot)
             %patch([VecInvTau(:); flipud(VecInvTau(:))], [M(Ia2).QuanDLL1(:); flipud(M(Ia2).QuanDLL2(:))],[0.8 0.8 0.8]);
             
             
-            H1=plot(VecInvTau,M(Ia2).MeanDLL);
+            H1=plot(VecInvTau,M(Ia2).MeanDLL,'k-','LineWidth',2);
             hold on;
-            H2=plot(VecInvTau, M(Ia2).QuanDLL1,'k--');
-            H2.Color = H1.Color;
+            %H2=plot(VecInvTau, M(Ia2).QuanDLL1,'k--');
+            %H2.Color = H1.Color;
             
-            H2=plot(VecInvTau, M(Ia2).QuanDLL2,'k--');
-            H2.Color = H1.Color;
+            %H2=plot(VecInvTau, M(Ia2).QuanDLL2,'k--');
+            %H2.Color = H1.Color;
             
             
             
         end
-        axis([-0.1 0.1 -250 100])
         
+        %axis([-0.1 0.1 -250 100])
+        
+        plot(1./[InPar.Tau InPar.Tau],[-210 -175],'--')
+      
+        Min = min(M(Ia2).MeanDLL);
+        hold on
+       
+        GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
+        Npar = 9;  % Tau, Alpha2, Alpha0
+        Level = 0.5.*chi2inv(GaussProb,Npar);
+    
+        plot([-0.1 0.1],[Min Min]+Level(1),'k--')
+        plot([-0.1 0.1],[Min Min]+Level(2),'k--')
+        plot([-0.1 0.1],[Min Min]+Level(3),'k--')
+    
+        GaussProb = 1-2.*normcdf([1:1:5],0,1,'upper');
+        Npar = 1;  % Tau, Alpha2, Alpha0
+        Level = 0.5.*chi2inv(GaussProb,Npar);
+    
+        plot([-0.1 0.1],[Min Min]+Level(1),'r--')
+        plot([-0.1 0.1],[Min Min]+Level(2),'r--')
+        plot([-0.1 0.1],[Min Min]+Level(3),'r--')
+        
+        
+        H = xlabel('$1/\tau$ [1/day]');
+        H.Interpreter = 'latex';
+        H.FontSize = 18;
+        H = ylabel('$\Delta\ln{\mathcal{L}(x,F,|\tau,\alpha_i,x_i,\theta=0)}$');
+        H.Interpreter = 'latex';
+        H.FontSize = 18;
+        
+        print Ast_Sim2_a2_005.eps -depsc2
+        
+    case 'test_timed'
+        
+        InPar=select_parameters(2);
+        InPar.EndMatching = false;
+        InPar.AliasFactor = 10;
+
+        VecInvTau = [(1./100:1./300:1./5)];
+        VecInvTau = [-fliplr(VecInvTau), VecInvTau];
+
+        TimeDelayVec = (10:5:50).';
+        
+        FitPar = [NaN       NaN         NaN           NaN        NaN           NaN           InPar.Gamma];
+        DefPar = [InPar.A0  InPar.A(1)  InPar.A(2)    InPar.x0   InPar.x(1)    InPar.x(2)    InPar.Gamma];
+
+        tic;
+
+        Ntd = numel(TimeDelayVec);
+        for Itd=1:1:Ntd
+            InPar.Tau = TimeDelayVec(Itd);
+            
+            [ResLC,ResG]=generateLC(InPar);
+
+        
+            VecRot = 0; 
+            Irot   = 1;
+
+        
+            RotMat = [cosd(VecRot(Irot)), -sin(VecRot(Irot)); sin(VecRot(Irot)), cos(VecRot(Irot))];
+
+            XY = RotMat*[ResLC.x_t(:).'; ResLC.y_t(:).'];
+
+
+            [Res(Itd)] = TimeDelay.fit_astrometric_flux(ResLC.T,ResLC.F_t,XY(1,:).',XY(2,:).',ResLC.sigma_F_hat,ResLC.sigma_x_hat,...
+                        'VecInvTau',VecInvTau,'DefPar',DefPar,'FitPar',FitPar,'Min_w',[0.0001 Inf],...
+                        'EndMatching',true);
+        end
+
+
+        %
+        'a'
+        save Ast_Sim2_TestTimeD.mat Res InPar VecInvTau
+        
+        for Itd=1:2:numel(Res)
+            FF=VecInvTau>0;
+            H=plot(1./VecInvTau(FF),Res(Itd).LL_H1(FF)-Res(Itd).LL_H0);
+            hold on;
+            plot(TimeDelayVec(Itd).*ones(1,2),[-500 200],'k--','Color',H.Color);
+        end
+        
+        axis([5 70 -450 150])
+                 
+        H = xlabel('$\tau$ [day]');
+        H.Interpreter = 'latex';
+        H.FontSize = 18;
+        H = ylabel('$\Delta\ln{\mathcal{L}(x,F,|\tau,\alpha_i,x_i,\theta=0)}$');
+        H.Interpreter = 'latex';
+        H.FontSize = 18;
+        
+        print Ast_Sim2_VarTimeDelays.eps -depsc2
+        
+        
+    case 'nonzero_a0_cont'
+        InPar=select_parameters(2);
+        InPar.EndMatching = false;
+        InPar.AliasFactor = 10;
+
+        InPar.StdMeanRange = [0.05 1];
+        
+        
+        
+        
+        
+        VecInvTau = [(1./100:1./300:1./10)];
+        VecInvTau = [-fliplr(VecInvTau), VecInvTau];
+
+        InPar.A0 = 2;
+        [ResLC,ResG]=generateLC(InPar);
+        
+        t   = ResLC.T;
+        F_t = ResLC.F_t;
+        x_t = ResLC.x_t;
+        y_t = ResLC.y_t;
+        
+        N   = numel(F_t);
+        t_step = 1;
+        
+        freqs = TimeDelay.fft_freq(N, t_step);
+
+        sigma_F_hat = ResLC.sigma_F_hat;
+        sigma_x_hat = ResLC.sigma_x_hat;
+        w = 2.*pi*freqs;
+
+        F_w = fft(F_t) ./ sqrt(N);
+        Gx_t = x_t.*F_t;
+        Gx_w = fft(Gx_t) ./ sqrt(N);
+        Gy_t = y_t.*F_t;
+        Gy_w = fft(Gy_t) ./ sqrt(N);
+
+
+        sigma_y = ResLC.sigma_x_hat;
+        sigma_y_hat = sigma_y;
+        
+        N = length(F_t);
+
+        DFT = fft(eye(N), N, 1) ./ sqrt(N);
+        DFT_dagger = DFT';
+        LogZ = sum(log(F_t));
+        Gamma_1_ = ((DFT * diag(F_t.^2)) * DFT_dagger) * sigma_x_hat^2;
+        
+        
+        Limits = [-300 300; 0 3; 1e-5 5;0 5;  -1 1; -2.1 2.1; -2.1 2.1;     1.5 3.5]; %  with Tau
+        
+        VecA0    = (0:0.1:2.5).';
+        VecA2    = (0.1:0.1:0.9).';
+        Na0      = numel(VecA0);
+        Na2      = numel(VecA2);
+        
+        for Ia0=1:1:Na0
+            for Ia2=1:1:Na2
+                Pars = [InPar.Tau, VecA0(Ia0), InPar.A(1), VecA2(Ia2), InPar.x0, InPar.x(1), InPar.x(2), InPar.Gamma];
+                FitPar = nan(size(Pars));
                 
+                [LogL_xF,LogL_GF,LogL_F]=TimeDelay.logl_xF(Pars,...
+                                         'FitPar',Pars,...
+                                         'w',w,...
+                                         'Limits',Limits,...
+                                         't',t,...
+                                         'x_t',x_t,...
+                                         'Gx_w',Gx_w,...
+                                         'F_t',F_t,...
+                                         'F_w',F_w,...
+                                         'sigma_F',sigma_F_hat,...
+                                         'sigma_x',sigma_x_hat,...
+                                         'DFT',DFT,...
+                                         'DFT_dagger',DFT_dagger,...
+                                         'LogZ',LogZ,...
+                                         'Gamma_1_',Gamma_1_,...
+                                         'EndMatching',InPar.EndMatching,...
+                                         'TwoD',false,...
+                                         'Verbose',false);
+                                     
+                 LL(Ia0,Ia2) = LogL_xF;
+            end
+        end
+        
+        'a'
         
         
+        
+    case 'nonzero_a0'
+        
+        InPar=select_parameters(2);
+        InPar.EndMatching = false;
+        InPar.AliasFactor = 10;
+
+        InPar.StdMeanRange = [0.05 1];
+        
+        Nsim = 100;
+        
+        VecInvTau = [(1./100:1./300:1./10)];
+        VecInvTau = [-fliplr(VecInvTau), VecInvTau];
+
+        A0Vec = 2; %(0:0.10:5:50).';
+        
+        
+        tic;
+
+        
+        Na0 = numel(A0Vec);
+        for Isim=1:1:Nsim
+            for Ia0=1:1:Na0
+                InPar.A0 = A0Vec(Ia0);
+
+                [ResLC,ResG]=generateLC(InPar);
+
+                FitPar = [NaN       NaN         NaN           NaN        NaN           NaN           InPar.Gamma];
+                DefPar = [InPar.A0  InPar.A(1)  InPar.A(2)    InPar.x0   InPar.x(1)    InPar.x(2)    InPar.Gamma];
+
+
+                VecRot = 0; 
+                Irot   = 1;
+
+
+                RotMat = [cosd(VecRot(Irot)), -sin(VecRot(Irot)); sin(VecRot(Irot)), cos(VecRot(Irot))];
+
+                XY = RotMat*[ResLC.x_t(:).'; ResLC.y_t(:).'];
+
+
+                [Res(Isim,Ia0)] = TimeDelay.fit_astrometric_flux(ResLC.T,ResLC.F_t,XY(1,:).',XY(2,:).',ResLC.sigma_F_hat,ResLC.sigma_x_hat,...
+                            'VecInvTau',VecInvTau,'DefPar',DefPar,'FitPar',FitPar,'Min_w',[0.0001 Inf],...
+                            'EndMatching',true);
+                        
+                
+                % start with the wrong A0:
+                FitPar = [0         NaN         NaN           NaN        NaN           NaN           InPar.Gamma];
+                DefPar = [0         InPar.A(1)  InPar.A(2)    InPar.x0   InPar.x(1)    InPar.x(2)    InPar.Gamma];
+       
+                [ResW(Isim,Ia0)] = TimeDelay.fit_astrometric_flux(ResLC.T,ResLC.F_t,XY(1,:).',XY(2,:).',ResLC.sigma_F_hat,ResLC.sigma_x_hat,...
+                            'VecInvTau',VecInvTau,'DefPar',DefPar,'FitPar',FitPar,'Min_w',[0.0001 Inf],...
+                            'EndMatching',true);     
+                        'a'
+            end
+        end
+
+        %
+        'a'
+        save Ast_Sim2_VariA0.mat Res ResW InPar VecInvTau
+        
+        Ia0 = 1;
+        for Isim=1:1:Nsim
+            %plot(VecInvTau,Res(Isim,Ia0).LL_H1 - Res(Isim,Ia0).LL_H0);
+            MatAll(Isim,:) = Res(Isim,Ia0).LL_H1(:).' - Res(Isim,Ia0).LL_H0;
+            MatAllW(Isim,:) = ResW(Isim,Ia0).LL_H1(:).' - ResW(Isim,Ia0).LL_H0;
+            [~,MinI] = min(Res(Isim,Ia0).LL_H1(:).' - Res(Isim,Ia0).LL_H0);
+            ParAll(Isim,:) = Res(1).BestPar_H1(MinI,:);
+            [~,MinI] = min(ResW(Isim,Ia0).LL_H1(:).' - ResW(Isim,Ia0).LL_H0);
+            ParWAll(Isim,:) = ResW(1).BestPar_H1(MinI,:);
+            
+            %hold on;
+        end
+        plot(VecInvTau,mean(MatAll),'k-','LineWidth',2)
+        hold on;
+        %plot(VecInvTau,mean(MatAllW),'k-','Color',[0.8 0.8 0.8],'LineWidth',2)
+        
+        axis([-0.1 0.1 -120 0])
+        
+        
+        H = xlabel('$1/\tau$ [day]');
+        H.Interpreter = 'latex';
+        H.FontSize = 18;
+        H = ylabel('$\Delta\ln{\mathcal{L}(x,F,|\tau,\alpha_i,x_i,\theta=0)}$');
+        H.Interpreter = 'latex';
+        H.FontSize = 18;
+        
+        print Ast_Sim2_A0_2.eps -depsc2
+        
+        
+     
+        
+        
+                        
     case 'sens_sigma_f'
         
         %-------------------------
@@ -1095,6 +1378,114 @@ switch lower(Plot)
         H.FontSize = 18;
         
         print Ast_Sim2_sensSigmaF.eps -depsc2
+        
+     case 'sens_slope'
+        
+        %-------------------------
+        %% sensitivity to adding slope to one LC
+        %-------------------------
+        
+        
+        InPar=select_parameters(2);
+        InPar.EndMatching = false;
+        InPar.AliasFactor = 10;
+
+        InPar.sigma_F_rel = 0.05;
+        
+        VecInvTau = [(1./100:1./300:1./10)];
+        VecInvTau = [-fliplr(VecInvTau), VecInvTau];
+        Nsim = 1;
+
+        
+        FitPar = [NaN       NaN         NaN           NaN        NaN           NaN           InPar.Gamma];
+        DefPar = [InPar.A0  InPar.A(1)  InPar.A(2)    InPar.x0   InPar.x(1)    InPar.x(2)    InPar.Gamma];
+
+        tic;
+
+        VecRot = 0; 
+        
+        Nrot   = numel(VecRot);
+        
+        VecFs = [0.05];
+        Ns    = numel(VecFs);
+        
+        VecSlope = [0,0.03,0.1,0.3];
+        Nslope   = numel(VecSlope);
+        
+        for Isim=1:1:Nsim
+            [Isim, Nsim]
+            
+            for Is=1:1:Ns
+                
+                for Islope=1:1:Nslope
+                    
+                    % simulate LC
+                    %[ResLC,ResG]=generateLC(InPar);
+
+
+                    InPar.sigma_F_rel = VecFs(Is);
+                    InPar.Slope       = VecSlope(Islope);
+                    [ResLC,ResG]=generateLC(InPar);
+
+                    FitPar = [NaN       NaN         NaN           NaN        NaN           NaN           InPar.Gamma];
+                    DefPar = [InPar.A0  InPar.A(1)  InPar.A(2)    InPar.x0   InPar.x(1)    InPar.x(2)    InPar.Gamma];
+
+
+                    Irot = 1;
+                    RotMat = [cosd(VecRot(Irot)), -sin(VecRot(Irot)); sin(VecRot(Irot)), cos(VecRot(Irot))];
+
+                    XY = RotMat*[ResLC.x_t(:).'; ResLC.y_t(:).'];
+
+                    tic;
+
+                    [Res(Isim,Is,Islope)] = TimeDelay.fit_astrometric_flux(ResLC.T,ResLC.F_t,XY(1,:).',XY(2,:).',ResLC.sigma_F_hat,ResLC.sigma_x_hat,...
+                                'VecInvTau',VecInvTau,'DefPar',DefPar,'FitPar',FitPar,'Min_w',[0.0001 Inf],...
+                                'EndMatching',true);
+
+                    toc
+
+                    AllLC(Isim) = ResLC;       
+                end
+            end
+                                      
+        end
+
+        %
+        save -v7.3 Ast_Sim2_fit_sensSlope.mat
+        'a'
+        
+        GaussProb = 1-normcdf([1:1:5],0,1,'upper');
+        Npar = 9;  % Tau, Alpha2, Alpha0
+        Level = 0.5.*chi2inv(GaussProb,Npar);
+
+        
+        
+        for Is=1:1:Nslope
+            H=plot(VecInvTau,Res(Is).LL_H1-Res(Is).LL_H0,'LineWidth',2)
+            hold on;
+            [Min,Imin] = min(Res(Is).LL_H1-Res(Is).LL_H0);
+            Hl = plot([-0.1 0.1],[Min + Level(3)].*ones(1,2),'--','LineWidth',1);
+            Hl.Color = H.Color;
+            
+        end
+        axis([-0.1 0.1 -400 200])
+        H=legend('slope=0','slope=0.03','slope=0.1','slope=0.3','Location','SouthWest');
+        H.Interpreter='latex';
+        
+        
+        H = xlabel('$1/\tau$ [1/day]');
+        H.Interpreter = 'latex';
+        H.FontSize = 18;
+        H = ylabel('$\Delta\ln{\mathcal{L}(x,F,|\tau,\alpha_i,x_i,\theta=0)}$');
+        H.Interpreter = 'latex';
+        H.FontSize = 18;
+        
+        
+        
+        
+        print Ast_Sim2_sensSlope.eps -depsc2
+           
+        
         
         
     case 'unevenly'
@@ -1380,6 +1771,8 @@ function InPar=select_parameters(SimName)
             InPar.sigma_x = 0.01;
             InPar.sigma_F_rel = 0.03./sum(InPar.A); %0.02.*sum(InPar.A);    
             
+            InPar.Slope   = 0;
+            
         case 5
 
             % simulation for non evenly spaced case
@@ -1411,6 +1804,7 @@ function [ResLC,ResG]=generateLC(InPar)
                                     'sigma_F_rel',InPar.sigma_F_rel,...
                                     'Cyclic',InPar.Cyclic,...
                                     'Validate',true,...
+                                    'Slope',InPar.Slope,...
                                     'StdMeanRange',InPar.StdMeanRange,...
                                     'AliasFactor',InPar.AliasFactor,...
                                     'EndMatching',InPar.EndMatching);

@@ -13,20 +13,21 @@ function [Res]=fit_astrometric_flux(t,F_t,x_t,y_t,sigma_F,sigma_x,varargin)
 %            'Solver' - Either @Util.fit.fminsearch_my | @Util.fit.fminunc_my
 %                       Default is @Util.fit.fminunc_my
 %            'FitPar' - The list of parameters to fit.
-%                       [A0, A1, A2, x0, x1, x2, y0, y1, y2, gamma]
+%                       [A0, A1, A2, x0, x1, x2, gamma]
 %                       If NaN, then will attempt to fit the parameter.
 %                       Default is 
-%                       [NaN NaN NaN  NaN NaN NaN  NaN NaN NaN  3]
+%                       [NaN NaN NaN  NaN NaN NaN  3]
 %            'DefPar' - The list of initial guess to use, or the parameter
 %                       value if not fitted. Default is
 %                       [2 1   0.66  0   1   -1   0   0   0    3]
 %            'Limits' - A two column matrix of [lower, upper] bounds on the
 %                       parameters. Default is
-%                       [0 5;0 2;0 2;  -1 1; -2.1 2.1; -2.1 2.1;  -1 1; -2.1 2.1; -2.1 2.1;   1.5 3.5]
+%                       [0 5;0 2;0 2;  -1 1; -2.1 2.1; -2.1 2.1;    1.5 3.5]
 %            'TwoD'   - A logical indicate if to perform 2-D fit.
 %                       Default is false - not operational.
 %            'VecInvTau' - A vector of 1/time_delay to attempt fitting.
 %                       Default is (1./100:0.5./100:1./10)
+%            'EndMatching' - Apply end-matching. Default is true.
 %            'Min_w'   - Minimum w. Default is 2.*pi./100.
 %            'Verbose' - Default is true.
 % Output : - An output structure containing the following fields:

@@ -51,6 +51,7 @@ addOptional(InPar,'DeltaT',1);
 addOptional(InPar,'sigma_x',0.02);  
 addOptional(InPar,'sigma_F_rel',0.05);
 addOptional(InPar,'sigmaOutTot',false);  % sigma out of total (false only multiply by f_dc)
+addOptional(InPar,'Slope',0);
 
 addOptional(InPar,'Validate',true);  % if LC is not positive than recalc
 addOptional(InPar,'StdMeanRange',[0.1 0.2]);  % if LC is not positive than recalc
@@ -132,6 +133,18 @@ f_red_w(1) = f_dc_w;
 % need to justify the multiplication by sqrt(AliasFactor)
 f1_w = A(1).*sqrt(InPar.AliasFactor) .* f_red_w;
 f2_w = A(2).*sqrt(InPar.AliasFactor) .* f_red_w .* exp(1j.*w.*Tau(1));
+
+% add slope
+if InPar.Slope~=0
+    f1_S = ifft(f1_w);
+    N_S  = numel(f1_S);
+    DSDt = InPar.Slope./InPar.TotTime./InPar.AliasFactor;   % slope per unit time
+    ttt  = (1:1:N_S) - N_S./2;
+    f1_S = f1_S + ttt(:).*DSDt;
+    
+    f1_w = fft(f1_S);
+end
+
 
 phi_w = f1_w + f2_w;
 phi_w(1) = phi_w(1) + A0 .* Nt;

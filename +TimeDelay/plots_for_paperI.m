@@ -1423,8 +1423,6 @@ switch lower(Plot)
                                     'Min_w',Min_w,...
                                     'InputFT',true);
                 
-                
-            
             
         end
         Nseason = numel(Section);
@@ -1487,6 +1485,51 @@ switch lower(Plot)
 'a'
 
         
+    case 'uneq_ztf'
+        
+        [Table,Str]=VO.ZTF.wget_ztf_phot(298.0025,29.87147,1);
+        JD = Table.hjd(1:280);
+        JD = JD - min(JD) + 1;
+        JD = [JD; JD+JD(end)+1];
+        JD = JD + randn(size(JD)).*0.1;
+                
+        InPar=select_parameters(11);
+        InPar.AliasFactor = 10;
+        InPar.DeltaT = 0.1;
+        InPar.Tau    = 50;
+        InPar.A  = [1 0];
+        
+        Min_w = [2.*pi./5000 2.*pi./0.001];
+        %Min_w = 2.*pi./[200 10];
+        
+        FitPar = [NaN         NaN          InPar.Gamma];
+        DefPar = [InPar.A(1)  InPar.A(2)   InPar.Gamma];
+        VecInvTau = (1./100:1./1000:1./20).';
+
+        Nsim = 10;
+        for Isim=1:1:Nsim
+            Isim
+            
+            [ResLC,Section,PS]=generateLCuneq(InPar,JD)
+
+            Res0(Isim)=TimeDelay.fit_flux(ResLC.T,ResLC.F_t,ResLC.sigma_F_hat,'TimeDomain',true,'VecInvTau',VecInvTau,'FitPar',FitPar,'DefPar',DefPar,'Min_w',Min_w);
+            
+        end
+        save -v7.3 ResAst_uneqztf_H0.mat Res0
+        
+        
+        'a'
+        
+        Nsim = numel(Res1);
+        for Isim=1:1:Nsim
+            MinDL1(Isim) = min(Res1(Isim).LL_H1 - Res1(Isim).LL_H0);
+            MinDL0(Isim) = min(Res0(Isim).LL_H1 - Res0(Isim).LL_H0);
+        end
+        
+        for I=1:1:Nsim
+            plot(1./Res0(I).Tau,Res0(I).LL_H1-Res0(I).LL_H0)
+            hold on;
+        end
         
         
     otherwise
@@ -1557,15 +1600,22 @@ function [ResLC,ResG]=generateLC(InPar)
 end
 
 
-function [ResLC,Section,PS]=generateLCuneq(InPar)
+function [ResLC,Section,PS]=generateLCuneq(InPar,JD)
 
+    if nargin<2
+        JD = [];
+    end
     %T=timeseries.random_time_sequence; 
     InPar.TotTime = 2000;
     InPar.DeltaT  = 0.1;
     InPar.AliasFactor = 5;
     [ResLC,ResG]=generateLC(InPar)
     
-    T=timeseries.random_time_sequence(3.*365,1,270,0.05,0.8);
+    if isempty(JD)
+        T=timeseries.random_time_sequence(3.*365,1,270,0.05,0.8);
+    else
+        T = JD;
+    end
     
     ResLC.F_t = interp1(ResLC.T,ResLC.F_t,T,'pchip');
     ResLC.T   = T;
